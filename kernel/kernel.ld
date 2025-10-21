@@ -18,7 +18,7 @@ SECTIONS
      */
     .text : {
         /* 确保启动代码entry.S位于最前面 */
-        entry.o(.text)
+        */entry.o(.text)
         *(.text .text.*)
         PROVIDE(etext = .);
     }

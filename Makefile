@@ -15,24 +15,29 @@ CFLAGS += -mno-relax -fno-stack-protector -fno-pie -no-pie
 # 链接选项
 LDFLAGS = -z max-page-size=4096
 
-# 源文件
-OBJS = entry.o main.o uart.o printf.o console.o
-TARGET = kernel
+# 源文件目录
+KERNEL_DIR = kernel
+
+# 源文件（带路径）
+SRCS_S = $(KERNEL_DIR)/entry.S
+SRCS_C = $(KERNEL_DIR)/main.c $(KERNEL_DIR)/uart.c $(KERNEL_DIR)/printf.c $(KERNEL_DIR)/console.c
+OBJS = $(SRCS_S:.S=.o) $(SRCS_C:.c=.o)
+TARGET = $(KERNEL_DIR)/kernel
 
 # === 构建目标 ===
 all: $(TARGET)
 	@echo "=== Hello OS Kernel Built Successfully ==="
 	@echo "Use 'make qemu' to run in QEMU"
 
-$(TARGET): $(OBJS) kernel.ld
-	$(LD) $(LDFLAGS) -T kernel.ld -o $(TARGET) $(OBJS)
+$(TARGET): $(OBJS) $(KERNEL_DIR)/kernel.ld
+	$(LD) $(LDFLAGS) -T $(KERNEL_DIR)/kernel.ld -o $(TARGET) $(OBJS)
 	$(OBJDUMP) -S $(TARGET) > $(TARGET).asm
 
 # 编译规则
-%.o: %.S
+$(KERNEL_DIR)/%.o: $(KERNEL_DIR)/%.S
 	$(CC) $(CFLAGS) -c $< -o $@
 
-%.o: %.c
+$(KERNEL_DIR)/%.o: $(KERNEL_DIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # === 运行目标 ===
@@ -51,7 +56,7 @@ qemu-gdb: $(TARGET)
 
 # === 清理目标 ===
 clean:
-	rm -f *.o $(TARGET) $(TARGET).asm
+	rm -f $(KERNEL_DIR)/*.o $(TARGET) $(TARGET).asm
 	@echo "Build files cleaned"
 
 # === 帮助信息 ===
