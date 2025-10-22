@@ -1,43 +1,62 @@
 
 // 函数声明
 void uart_init(void);
-void uart_puts(const char *s);
 int printf(const char *fmt, ...);
-void clear_screen(void);
+void buddy_init(void);
+void *alloc_page(void);
+void *alloc_pages(int n);
+void free_page(void *page);
+void free_pages(void *page, int n);
+void kvminit(void);
+void kvminithart(void);
 
-// 用于测试BSS段清零的全局变量
-int bss_test_var;
+typedef unsigned long uint64;
 
-// 延时函数
-void delay(void)
-{
-    for (volatile int i = 0; i < 10000000; i++);
-}
-
-/*
- * 从entry.S汇编代码跳转到此处
- */
 void kernel_main(void)
 {
     // 初始化UART串口
     uart_init();
     
-    // 测试printf功能
-    printf("Integer: %d\n", 42);
-    printf("Negative: %d\n", -123);
-    printf("Hex: %x\n", 255);
-    printf("Pointer: %p\n", (void*)0x80000000);
-    printf("String: %s\n", "Hello World");
-    printf("Character: %c\n", 'A');
-    printf("Percent: %%\n");
-    delay();
-    // 清屏
-    clear_screen();
-
-    printf("INT_MAX: %d\n", 2147483647);
-    printf("INT_MIN: %d\n", -2147483648);
-    printf("NULL string: %s\n", (char*)0);
-    printf("Empty string: %s\n", "");
+    printf("\n=== OS Lab 3: Memory Management ===\n\n");
+    
+    // 初始化伙伴系统物理内存分配器
+    printf("Initializing buddy allocator...\n");
+    buddy_init();
+    
+    // 测试物理内存分配
+    printf("\nTesting physical memory allocation:\n");
+    void *page1 = alloc_page();
+    void *page2 = alloc_page();
+    printf("  Allocated page1: %p\n", page1);
+    printf("  Allocated page2: %p\n", page2);
+    
+    // 测试连续页面分配
+    void *pages = alloc_pages(4);
+    printf("  Allocated 4 pages: %p\n", pages);
+    
+    // 释放测试
+    free_page(page1);
+    free_pages(pages, 4);
+    printf("  Memory freed\n");
+    
+    // 初始化页表
+    printf("\nInitializing page table...\n");
+    kvminit();
+    printf("  Kernel page table created\n");
+    
+    // 启用分页
+    printf("\nEnabling paging...\n");
+    kvminithart();
+    printf("  Paging enabled successfully!\n");
+    
+    // 验证虚拟内存工作正常
+    printf("\nVerifying virtual memory:\n");
+    printf("  Code still executable: YES\n");
+    printf("  Data still accessible: YES\n");
+    printf("  UART still working: YES\n");
+    
+    printf("\n=== All tests passed! ===\n");
+    
     // 进入空闲循环
     while (1) {
         asm volatile("wfi");

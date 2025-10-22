@@ -20,7 +20,7 @@ KERNEL_DIR = kernel
 
 # 源文件（带路径）
 SRCS_S = $(KERNEL_DIR)/entry.S
-SRCS_C = $(KERNEL_DIR)/main.c $(KERNEL_DIR)/uart.c $(KERNEL_DIR)/printf.c $(KERNEL_DIR)/console.c
+SRCS_C = $(KERNEL_DIR)/main.c $(KERNEL_DIR)/uart.c $(KERNEL_DIR)/printf.c $(KERNEL_DIR)/console.c $(KERNEL_DIR)/buddy.c $(KERNEL_DIR)/vm.c
 OBJS = $(SRCS_S:.S=.o) $(SRCS_C:.c=.o)
 TARGET = $(KERNEL_DIR)/kernel
 
