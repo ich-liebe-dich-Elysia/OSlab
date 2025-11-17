@@ -1,6 +1,5 @@
 /*
- * 虚拟内存管理 - Sv39页表实现
- * 参考xv6但简化了用户进程相关部分
+ * 虚拟内存管理
  */
 
 typedef unsigned long uint64;
@@ -179,7 +178,9 @@ static pagetable_t kvmmake(void) {
     kvmmap(kpgtbl, KERNBASE, KERNBASE, (uint64)etext - KERNBASE, PTE_R | PTE_X);
     
     // 内核数据段和剩余物理内存 - 可读可写
-    kvmmap(kpgtbl, (uint64)etext, (uint64)etext, PHYSTOP - (uint64)etext, PTE_R | PTE_W);
+    // 从etext向上对齐到页边界，避免与代码段最后一页重叠
+    uint64 data_start = PGROUNDUP((uint64)etext);
+    kvmmap(kpgtbl, data_start, data_start, PHYSTOP - data_start, PTE_R | PTE_W);
     
     return kpgtbl;
 }
@@ -211,7 +212,7 @@ void kvminithart(void) {
 }
 
 /*
- * 虚拟地址转物理地址（用于调试）
+ * 虚拟地址转物理地址
  */
 uint64 walkaddr(pagetable_t pagetable, uint64 va) {
     pte_t *pte = walk(pagetable, va, 0);
@@ -225,7 +226,7 @@ uint64 walkaddr(pagetable_t pagetable, uint64 va) {
 }
 
 /*
- * 打印页表内容（调试用）
+ * 打印页表内容
  */
 void dump_pagetable(pagetable_t pagetable, int level, uint64 va_base) {
     static const char *indent[] = {"", "  ", "    ", "      "};

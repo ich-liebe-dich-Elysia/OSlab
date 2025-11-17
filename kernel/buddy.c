@@ -1,6 +1,5 @@
 /*
  * 伙伴算法物理内存分配器
- * 相比xv6的简单链表，提供更好的性能和内存利用率
  */
 
 typedef unsigned long uint64;
@@ -37,10 +36,10 @@ static struct {
     uint64 total_pages;
 } buddy;
 
-// 外部符号（链接脚本定义）
+// 外部符号（由链接脚本定义）
 extern char end[];
 
-// 辅助函数：计算2的幂
+// 计算2的幂
 static inline int is_power_of_2(unsigned int n) {
     return n && !(n & (n - 1));
 }
@@ -87,7 +86,7 @@ void buddy_init(void) {
         int order = MAX_ORDER;
         uint64 size = (1UL << order) * PGSIZE;
         
-        // 找到当前地址能分配的最大order
+        // 找到当前地址能分配的最大order  
         while (order > 0 && (addr + size > buddy.mem_end || (addr & (size - 1)))) {
             order--;
             size = (1UL << order) * PGSIZE;
