@@ -14,8 +14,11 @@
 
 // 寄存器位定义
 #define LSR_TX_IDLE (1<<5)      // 发送缓冲区空闲
+#define LSR_RX_READY (1<<0)     // 接收数据就绪
 #define LCR_EIGHT_BITS (3<<0)   // 8位数据
 #define LCR_BAUD_LATCH (1<<7)   // 波特率设置模式
+#define IER_RX_ENABLE (1<<0)    // 接收中断使能
+#define IER_TX_ENABLE (1<<1)    // 发送中断使能
 
 // 寄存器访问宏
 #define REG(offset) ((volatile unsigned char *)(UART0_BASE + (offset)))
@@ -74,4 +77,45 @@ void uart_puts(const char *s)
 void consputc(int c)
 {
     uart_putc(c);
+}
+
+/*
+ * 读取一个字符（轮询方式）
+ */
+int uart_getc(void)
+{
+    if (read_reg(LSR) & LSR_RX_READY) {
+        return read_reg(0);  // RHR (Receive Holding Register)
+    }
+    return -1;  // 没有数据
+}
+
+/*
+ * 使能UART接收中断
+ */
+void uart_enable_rx_interrupt(void)
+{
+    write_reg(IER, IER_RX_ENABLE);
+}
+
+/*
+ * UART中断处理函数
+ */
+void uart_intr(void)
+{
+    // 读取所有可用字符
+    while (1) {
+        int c = uart_getc();
+        if (c == -1) {
+            break;
+        }
+        
+        // 简单回显
+        uart_putc(c);
+        
+        // 特殊字符处理
+        if (c == '\r' || c == '\n') {
+            uart_putc('\n');
+        }
+    }
 }
