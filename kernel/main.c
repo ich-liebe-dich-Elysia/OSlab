@@ -72,16 +72,6 @@ void test_exception_handling(void) {
 }
 
 /*
- * 测试UART中断
- */
-void test_uart_interrupt(void) {
-    printf("\n=== UART Interrupt Test ===\n");
-    printf("UART interrupt enabled.\n");
-    printf("Type characters to test (they will be echoed back).\n");
-    printf("Note: This is a passive test - try typing in QEMU console.\n");
-}
-
-/*
  * 主入口
  */
 void kernel_main(void)
@@ -110,10 +100,6 @@ void kernel_main(void)
     // 测试各种中断和异常
     test_exception_handling();
     test_timer_interrupt();
-    
-    // 使能UART接收中断
-    uart_enable_rx_interrupt();
-    test_uart_interrupt();
     
     printf("\n=== System ready, entering idle loop ===\n");
     

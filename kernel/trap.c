@@ -165,7 +165,7 @@ void kerneltrap(void) {
     // 检查是否从S模式进入
     if ((sstatus & SSTATUS_SPP) == 0) {
         printf("kerneltrap: not from supervisor mode\n");
-        while(1);
+        while(1); 
     }
     
     // 检查是否是中断（最高位为1）
