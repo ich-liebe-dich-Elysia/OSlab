@@ -90,6 +90,12 @@ int uart_getc(void)
     return -1;  // 没有数据
 }
 
+// 别名，供 console.c 使用
+int uartgetc(void)
+{
+    return uart_getc();
+}
+
 /*
  * 使能UART接收中断
  */
