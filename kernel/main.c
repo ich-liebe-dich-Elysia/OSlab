@@ -31,11 +31,11 @@ void init_process(void) {
   printf("  OS Kernel Test Suite\n");
   printf("========================================\n");
 
-  // 运行用户态系统调用测试
-  extern void test_real_user_syscall(void);
-  test_real_user_syscall();
+  // 运行文件系统测试
+  extern void test_filesystem(void);
+  test_filesystem();
 
-  // 不应该执行到这里（test_real_user_syscall 会调用 exit）
+  // 不应该执行到这里
   printf("\n[错误] init_process 不应该返回！\n");
   exit_process(0);
 }
