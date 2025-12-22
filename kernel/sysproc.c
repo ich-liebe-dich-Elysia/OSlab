@@ -16,8 +16,8 @@ extern int argaddr(int, uint64*);
 
 // sys_fork - 创建子进程
 uint64 sys_fork(void) {
-  // TODO: 实现fork（需要复制页表等）
-  return -1;  // 暂未实现
+  extern int fork_process(void);
+  return fork_process();
 }
 
 // sys_exit - 终止当前进程

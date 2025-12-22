@@ -196,11 +196,15 @@ static int devintr(void) {
 
 /*
  * 用户态陷阱处理
+ * 注意：进入此函数时，kernelvec 已经完成：
+ *   1. 保存用户寄存器到 trapframe
+ *   2. 切换到内核页表
+ *   3. 切换到内核栈
  */
 void usertrap(void) {
   struct proc *p = myproc();
   
-  // 保存用户 PC
+  // 保存用户 PC（硬件保存在 sepc 中）
   p->trapframe->epc = r_sepc();
   
   uint64 scause = r_scause();
@@ -242,6 +246,40 @@ void usertrapret(void) {
   // 设置陷阱向量为 kernelvec（下次陷阱会从用户态进入）
   w_stvec((uint64)kernelvec);
   
+  // 在 trapframe 中保存内核信息，供下次陷阱使用
+  // 计算内核页表的 satp 值
+  extern pagetable_t kernel_pagetable;
+  uint64 kpt_addr = (uint64)kernel_pagetable;
+  if (kpt_addr & 0xffffffff00000000UL) {
+    kpt_addr = kpt_addr & 0xffffffff;
+  }
+  p->trapframe->kernel_satp = (8L << 60) | (kpt_addr >> 12);
+  
+  // 保存内核栈指针（进程的内核栈）
+  p->trapframe->kernel_sp = p->kstack;
+  
+  // 保存 usertrap 地址
+  p->trapframe->kernel_trap = (uint64)usertrap;
+  
+  // 设置 sscratch 为 trapframe 地址
+  // 这样当用户态发生陷阱时，kernelvec 可以通过 sscratch 找到 trapframe
+  uint64 tf_addr = (uint64)p->trapframe;
+  if (tf_addr & 0xffffffff00000000UL) {
+    tf_addr = tf_addr & 0xffffffff;
+  }
+  w_sscratch(tf_addr);
+  
+  // 切换到用户页表
+  if (p->pagetable) {
+    uint64 pt_addr = (uint64)p->pagetable;
+    if (pt_addr & 0xffffffff00000000UL) {
+      pt_addr = pt_addr & 0xffffffff;
+    }
+    uint64 satp = (8L << 60) | (pt_addr >> 12);
+    w_satp(satp);
+    asm volatile("sfence.vma zero, zero");
+  }
+  
   // 设置返回用户态的状态
   uint64 x = r_sstatus();
   x &= ~SSTATUS_SPP;  // 清除 SPP = 0，返回到用户态
@@ -257,6 +295,8 @@ void usertrapret(void) {
 
 /*
  * 内核态中断处理
+ * 注意：只处理从内核态进入的陷阱
+ * 用户态陷阱由 kernelvec 直接转发到 usertrap
  */
 void kerneltrap(void) {
   uint64 sepc = r_sepc();
@@ -264,11 +304,10 @@ void kerneltrap(void) {
   uint64 scause = r_scause();
   uint64 stval = r_stval();
 
-  // 检查是否从用户态进入
+  // 确认是从内核态进入（SPP=1 表示之前在 S-mode）
   if ((sstatus & SSTATUS_SPP) == 0) {
-    // 从用户态来的陷阱
-    usertrap();
-    return;
+    printf("[ERROR] kerneltrap: 不应该从用户态进入！\n");
+    while(1);
   }
 
   // 检查是否是中断（最高位为1）

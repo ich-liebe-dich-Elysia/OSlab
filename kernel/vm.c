@@ -123,6 +123,38 @@ pagetable_t create_pagetable(void) {
 }
 
 /*
+ * 在用户页表中映射内核空间
+ * 这样 ecall 后跳转到 stvec（内核地址）时不会页错误
+ * 注意：不设置 PTE_U，所以用户态无法访问，只有 S-mode 可以访问
+ */
+int map_kernel_to_user_pagetable(pagetable_t pt) {
+    extern char etext[];
+    
+    // UART寄存器
+    if (mappages(pt, UART0, PGSIZE, UART0, PTE_R | PTE_W) != 0)
+        return -1;
+    
+    // virtio磁盘接口
+    if (mappages(pt, VIRTIO0, PGSIZE, VIRTIO0, PTE_R | PTE_W) != 0)
+        return -1;
+    
+    // PLIC中断控制器
+    if (mappages(pt, PLIC, 0x400000, PLIC, PTE_R | PTE_W) != 0)
+        return -1;
+    
+    // 内核代码段 - 可读可执行（不设置 PTE_U）
+    if (mappages(pt, KERNBASE, (uint64)etext - KERNBASE, KERNBASE, PTE_R | PTE_X) != 0)
+        return -1;
+    
+    // 内核数据段 - 可读可写（不设置 PTE_U）
+    uint64 data_start = PGROUNDUP((uint64)etext);
+    if (mappages(pt, data_start, PHYSTOP - data_start, data_start, PTE_R | PTE_W) != 0)
+        return -1;
+    
+    return 0;
+}
+
+/*
  * 递归释放页表
  */
 void freewalk(pagetable_t pagetable, int level) {
@@ -223,6 +255,58 @@ uint64 walkaddr(pagetable_t pagetable, uint64 va) {
         return 0;
     
     return PTE2PA(*pte);
+}
+
+/*
+ * 复制用户内存页
+ * 从 old 页表复制到 new 页表，范围 [0, sz)
+ * 返回 0 成功，-1 失败
+ */
+int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz) {
+    pte_t *pte;
+    uint64 pa, i;
+    uint64 flags;
+    char *mem;
+    
+    for (i = 0; i < sz; i += PGSIZE) {
+        if ((pte = walk(old, i, 0)) == 0)
+            continue;  // 未映射的页跳过
+        if ((*pte & PTE_V) == 0)
+            continue;
+        if ((*pte & PTE_U) == 0)
+            continue;  // 只复制用户页
+        
+        pa = PTE2PA(*pte);
+        flags = PTE_FLAGS(*pte);
+        
+        // 分配新的物理页
+        if ((mem = alloc_page()) == 0)
+            goto err;
+        
+        // 复制内容（手动逐字节复制）
+        char *src = (char*)pa;
+        char *dst = mem;
+        for (uint64 k = 0; k < PGSIZE; k++) {
+            dst[k] = src[k];
+        }
+        
+        // 映射到新页表
+        if (mappages(new, i, PGSIZE, (uint64)mem, flags) != 0) {
+            free_page(mem);
+            goto err;
+        }
+    }
+    return 0;
+    
+err:
+    // 失败时释放已分配的页
+    for (uint64 j = 0; j < i; j += PGSIZE) {
+        if ((pte = walk(new, j, 0)) != 0 && (*pte & PTE_V) && (*pte & PTE_U)) {
+            pa = PTE2PA(*pte);
+            free_page((void*)pa);
+        }
+    }
+    return -1;
 }
 
 /*

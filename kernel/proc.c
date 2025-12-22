@@ -156,6 +156,7 @@ struct proc *allocproc(void) {
   p->priority = 0;               // MLFQ: 所有进程从最高优先级开始
   p->timeslice = TIMESLICE_BASE; // 初始时间片
   p->total_runtime = 0;
+  p->sz = 0;                     // 初始用户内存大小
   p->chan = 0;
   p->xstate = 0;
   p->parent = 0;
@@ -464,4 +465,62 @@ void print_queue_stats(void) {
   printf("\nSleep Queue: %d processes\n", sleep_count);
   printf("Zombie Queue: %d processes\n", zombie_count);
   printf("===========================\n");
+}
+
+// fork - 复制当前进程
+int fork_process(void) {
+  struct proc *np;
+  struct proc *p = myproc();
+  
+  extern int uvmcopy(pagetable_t, pagetable_t, uint64);
+  extern int map_kernel_to_user_pagetable(pagetable_t);
+
+  // 分配新进程
+  if ((np = allocproc()) == 0) {
+    return -1;
+  }
+
+  // 复制用户内存
+  if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0) {
+    freeproc(np);
+    return -1;
+  }
+  np->sz = p->sz;
+
+  // 映射内核空间到子进程页表
+  if (map_kernel_to_user_pagetable(np->pagetable) < 0) {
+    freeproc(np);
+    return -1;
+  }
+
+  // 复制 trapframe（保存用户寄存器状态）
+  *np->trapframe = *p->trapframe;
+
+  // 子进程返回 0
+  np->trapframe->a0 = 0;
+  
+  // 注意：此时父进程的 epc 还指向 ecall 指令
+  // handle_ecall 会在 syscall 返回后将父进程的 epc += 4
+  // 但子进程是在 syscall 中创建的，所以需要手动 +4
+  np->trapframe->epc += 4;
+
+  // 复制进程名
+  for (int i = 0; i < 16; i++)
+    np->name[i] = p->name[i];
+
+  // 设置父进程
+  np->parent = p;
+
+  // 设置子进程的内核上下文，让调度器切换时能正确返回用户态
+  extern void usertrapret(void);
+  __builtin_memset(&np->context, 0, sizeof(np->context));
+  np->context.ra = (uint64)usertrapret;  // 从 usertrapret 开始执行
+  np->context.sp = np->kstack;            // 使用子进程的内核栈
+
+  // 设置为可运行状态并加入调度队列
+  np->state = RUNNABLE;
+  enqueue(np);
+
+  // 父进程返回子进程PID
+  return np->pid;
 }
