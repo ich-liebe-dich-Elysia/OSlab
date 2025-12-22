@@ -96,6 +96,17 @@ static inline void w_sepc(unsigned long x) {
     asm volatile("csrw sepc, %0" : : "r" (x));
 }
 
+// Supervisor Address Translation and Protection
+static inline unsigned long r_satp() {
+    unsigned long x;
+    asm volatile("csrr %0, satp" : "=r" (x));
+    return x;
+}
+
+static inline void w_satp(unsigned long x) {
+    asm volatile("csrw satp, %0" : : "r" (x));
+}
+
 // Supervisor Cause Register
 static inline unsigned long r_scause() {
     unsigned long x;
@@ -108,6 +119,17 @@ static inline unsigned long r_stval() {
     unsigned long x;
     asm volatile("csrr %0, stval" : "=r" (x));
     return x;
+}
+
+// Supervisor Scratch Register (用于用户态/内核态切换)
+static inline unsigned long r_sscratch() {
+    unsigned long x;
+    asm volatile("csrr %0, sscratch" : "=r" (x));
+    return x;
+}
+
+static inline void w_sscratch(unsigned long x) {
+    asm volatile("csrw sscratch, %0" : : "r" (x));
 }
 
 // Timer registers

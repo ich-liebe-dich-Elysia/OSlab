@@ -47,6 +47,7 @@ struct proc {
   int priority;                 // 当前优先级 (0最高, 3最低)
   uint64 timeslice;             // 当前时间片剩余
   uint64 total_runtime;         // 总运行时间
+  uint64 sz;                    // 用户内存大小（字节）
   uint64 kstack;                // 内核栈顶
   pagetable_t pagetable;        // 页表
   struct trapframe *trapframe;  // 陷阱帧（用于系统调用）
@@ -68,6 +69,7 @@ void procinit(void);
 struct proc *allocproc(void);
 void freeproc(struct proc *p);
 int create_process(void (*entry)(void), const char *name);
+int fork_process(void);
 void exit_process(int status);
 int wait_process(int *status);
 void scheduler(void);
